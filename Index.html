@@ -1,0 +1,1060 @@
+<!DOCTYPE html> 
+<html lang="es"> 
+<head> 
+ <meta charset="UTF-8" /> 
+ <meta name="viewport" content="width=device-width, initial-scale=1.0" /> 
+ <title>Planificador de vacaciones y festivos</title> 
+
+ <!-- Librería para generar el PDF --> 
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> 
+
+ <style> 
+ :root { 
+ --vacaciones: #2563eb; 
+ --festivos: #6b0000; 
+ --compensados: #9333ea; 
+ --fondo: #f4f7fb; 
+ --texto: #1e293b; 
+ --borde: #dbe3ef; 
+ --blanco: #ffffff; 
+ } 
+
+ * { 
+ box-sizing: border-box; 
+ } 
+
+ body { 
+ margin: 0; 
+ font-family: Arial, Helvetica, sans-serif; 
+ background: var(--fondo); 
+ color: var(--texto); 
+ } 
+
+ header { 
+ background: linear-gradient(135deg, #0f172a, #1e3a8a); 
+ color: white; 
+ padding: 28px 20px; 
+ text-align: center; 
+ } 
+
+ header h1 { 
+ margin: 0 0 8px; 
+ font-size: clamp(1.6rem, 3vw, 2.3rem); 
+ } 
+
+ header p { 
+ margin: 0; 
+ opacity: 0.9; 
+ } 
+
+ .contenedor { 
+ max-width: 1500px; 
+ margin: 0 auto; 
+ padding: 24px; 
+ } 
+
+ .panel-control, 
+ .resumen { 
+ background: var(--blanco); 
+ border-radius: 14px; 
+ box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08); 
+ padding: 20px; 
+ margin-bottom: 24px; 
+ } 
+
+ .panel-control { 
+ display: flex; 
+ align-items: center; 
+ justify-content: space-between; 
+ gap: 18px; 
+ flex-wrap: wrap; 
+ } 
+
+ .selector-anio { 
+ display: flex; 
+ align-items: center; 
+ gap: 10px; 
+ } 
+
+ label { 
+ font-weight: bold; 
+ } 
+
+ select, 
+ button { 
+ font: inherit; 
+ border-radius: 8px; 
+ padding: 10px 14px; 
+ border: 1px solid var(--borde); 
+ } 
+
+ select { 
+ background: white; 
+ cursor: pointer; 
+ } 
+
+ button { 
+ cursor: pointer; 
+ font-weight: bold; 
+ transition: transform 0.15s ease, opacity 0.15s ease; 
+ } 
+
+ button:hover { 
+ transform: translateY(-1px); 
+ opacity: 0.92; 
+ } 
+
+ .botones-acciones { 
+ display: flex; 
+ gap: 10px; 
+ flex-wrap: wrap; 
+ } 
+
+ .btn-pdf { 
+ background: #0f766e; 
+ color: white; 
+ border-color: #0f766e; 
+ } 
+
+ .btn-limpiar { 
+ background: #fff; 
+ color: #b91c1c; 
+ border-color: #fecaca; 
+ } 
+
+ .selector-tipo { 
+ display: flex; 
+ gap: 10px; 
+ flex-wrap: wrap; 
+ align-items: center; 
+ } 
+
+ .tipo-btn { 
+ background: white; 
+ min-width: 130px; 
+ } 
+
+ .tipo-btn.activo { 
+ color: white; 
+ } 
+
+ .tipo-btn[data-tipo="vacaciones"].activo { 
+ background: var(--vacaciones); 
+ border-color: var(--vacaciones); 
+ } 
+
+ .tipo-btn[data-tipo="festivos"].activo { 
+ background: var(--festivos); 
+ border-color: var(--festivos); 
+ } 
+
+ .tipo-btn[data-tipo="compensados"].activo { 
+ background: var(--compensados); 
+ border-color: var(--compensados); 
+ } 
+
+ .instruccion { 
+ width: 100%; 
+ margin: 0; 
+ color: #64748b; 
+ font-size: 0.92rem; 
+ } 
+
+ .resumen { 
+ display: grid; 
+ grid-template-columns: repeat(3, minmax(180px, 1fr)); 
+ gap: 16px; 
+ } 
+
+ .tarjeta-resumen { 
+ border-radius: 12px; 
+ padding: 18px; 
+ color: white; 
+ } 
+
+ .tarjeta-resumen h2 { 
+ font-size: 1rem; 
+ margin: 0 0 8px; 
+ font-weight: normal; 
+ } 
+
+ .tarjeta-resumen strong { 
+ font-size: 2rem; 
+ } 
+
+ .resumen-vacaciones { 
+ background: var(--vacaciones); 
+ } 
+
+ .resumen-festivos { 
+ background: var(--festivos); 
+ } 
+
+ .resumen-compensados { 
+ background: var(--compensados); 
+ } 
+
+ .calendarios { 
+ display: grid; 
+ grid-template-columns: repeat(3, minmax(0, 1fr)); 
+ gap: 18px; 
+ } 
+
+ .mes { 
+ background: white; 
+ border-radius: 14px; 
+ padding: 16px; 
+ box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08); 
+ min-width: 0; 
+ overflow: hidden; 
+ } 
+
+ .mes h2 { 
+ font-size: 1.05rem; 
+ margin: 0 0 14px; 
+ text-align: center; 
+ text-transform: uppercase; 
+ color: #0f172a; 
+ } 
+
+ .semana { 
+ display: grid; 
+ grid-template-columns: repeat(7, minmax(0, 1fr)); 
+ gap: 4px; 
+ width: 100%; 
+ } 
+
+ .semana span { 
+ min-width: 0; 
+ font-size: 0.72rem; 
+ text-align: center; 
+ color: #64748b; 
+ font-weight: bold; 
+ padding-bottom: 4px; 
+ } 
+
+ .dias { 
+ display: grid; 
+ grid-template-columns: repeat(7, minmax(0, 1fr)); 
+ gap: 4px; 
+ width: 100%; 
+ } 
+
+ .dia-vacio { 
+ min-width: 0; 
+ min-height: 36px; 
+ } 
+
+ .dia { 
+ width: 100%; 
+ min-width: 0; 
+ min-height: 36px; 
+ padding: 0; 
+ margin: 0; 
+ border: 1px solid #e2e8f0; 
+ background: #fff; 
+ border-radius: 7px; 
+ font-size: 0.85rem; 
+ color: #334155; 
+ overflow: hidden; 
+ } 
+
+ .dia:hover { 
+ background: #eff6ff; 
+ border-color: #93c5fd; 
+ } 
+
+ .dia.vacaciones { 
+ background: var(--vacaciones); 
+ border-color: var(--vacaciones); 
+ color: white; 
+ } 
+
+ .dia.festivos { 
+ background: var(--festivos); 
+ border-color: var(--festivos); 
+ color: white; 
+ } 
+
+ .dia.compensados { 
+ background: var(--compensados); 
+ border-color: var(--compensados); 
+ color: white; 
+ } 
+
+ .leyenda { 
+ display: flex; 
+ justify-content: center; 
+ flex-wrap: wrap; 
+ gap: 16px; 
+ margin: 24px 0 4px; 
+ font-size: 0.9rem; 
+ } 
+
+ .leyenda-item { 
+ display: flex; 
+ align-items: center; 
+ gap: 7px; 
+ } 
+
+ .color { 
+ width: 14px; 
+ height: 14px; 
+ border-radius: 4px; 
+ } 
+
+ .color.vacaciones { 
+ background: var(--vacaciones); 
+ } 
+
+ .color.festivos { 
+ background: var(--festivos); 
+ } 
+
+ .color.compensados { 
+ background: var(--compensados); 
+ } 
+
+ .selector-persona { 
+ display: flex; 
+ align-items: center; 
+ gap: 10px; 
+ flex-wrap: wrap; 
+ } 
+
+ .selector-persona input { 
+ width: 85px; 
+ padding: 10px; 
+ border: 1px solid var(--borde); 
+ border-radius: 8px; 
+ font: inherit; 
+ } 
+
+ .resumen { 
+ grid-template-columns: repeat(4, minmax(180px, 1fr)); 
+ } 
+
+ .resumen-pendientes { 
+ background: #ea580c; 
+ } 
+
+ .dia:disabled { 
+ cursor: not-allowed; 
+ opacity: 0.95; 
+ } 
+
+ @media (max-width: 1050px) { 
+ .calendarios { 
+ grid-template-columns: repeat(2, minmax(0, 1fr)); 
+ } 
+ } 
+
+ @media (max-width: 950px) { 
+ .resumen { 
+ grid-template-columns: repeat(2, minmax(180px, 1fr)); 
+ } 
+ } 
+
+ @media (max-width: 650px) { 
+ .contenedor { 
+ padding: 16px; 
+ } 
+
+ .resumen { 
+ grid-template-columns: 1fr; 
+ } 
+
+ .panel-control { 
+ align-items: stretch; 
+ } 
+
+ .selector-anio, 
+ .selector-tipo, 
+ .botones-acciones { 
+ width: 100%; 
+ } 
+
+ .selector-anio { 
+ justify-content: space-between; 
+ } 
+
+ .tipo-btn, 
+ .botones-acciones button { 
+ flex: 1; 
+ } 
+
+ .calendarios { 
+ grid-template-columns: 1fr; 
+ } 
+ } 
+ </style> 
+</head> 
+
+<body> 
+ <header> 
+ <h1>Planificador anual de días</h1> 
+ <p>Asigna vacaciones, festivos y compensados, incluyendo enero del año siguiente.</p> 
+ </header> 
+
+ <main class="contenedor"> 
+ <section class="panel-control"> 
+ <div class="selector-anio"> 
+ <label for="anio">Año:</label> 
+ <select id="anio"></select> 
+ </div> 
+
+ <div class="selector-tipo"> 
+ <button class="tipo-btn activo" data-tipo="vacaciones">Vacaciones</button> 
+ <button class="tipo-btn" data-tipo="festivos">Festivos</button> 
+ <button class="tipo-btn" data-tipo="compensados">Compensados</button> 
+ </div> 
+
+ <div class="selector-persona"> 
+ <label for="persona">Persona:</label> 
+ <select id="persona"></select> 
+
+ <button type="button" id="agregarPersona">+ Añadir persona</button> 
+ <button type="button" id="eliminarPersona" class="btn-limpiar">Eliminar</button> 
+
+ <label for="maxVacaciones">Máximo de vacaciones:</label> 
+ <input id="maxVacaciones" type="number" min="0" value="22" /> 
+ </div> 
+
+ <div class="botones-acciones"> 
+ <button class="btn-pdf" id="generarPdf">Generar PDF</button> 
+ <button class="btn-limpiar" id="limpiarCalendario">Limpiar asignaciones</button> 
+ </div> 
+
+ <p class="instruccion"> 
+ Selecciona una categoría y pulsa sobre un día para asignarlo. Si pulsas de nuevo sobre un día con la misma categoría, se eliminará. 
+ </p> 
+ </section> 
+
+ <section class="resumen"> 
+ <article class="tarjeta-resumen resumen-vacaciones"> 
+ <h2>Vacaciones asignadas</h2> 
+ <strong id="totalVacaciones">0</strong> días 
+ </article> 
+
+ <article class="tarjeta-resumen resumen-pendientes"> 
+ <h2>Vacaciones pendientes</h2> 
+ <strong id="vacacionesPendientes">0</strong> días 
+ </article> 
+
+ <article class="tarjeta-resumen resumen-festivos"> 
+ <h2>Festivos</h2> 
+ <strong id="totalFestivos">0</strong> días 
+ </article> 
+
+ <article class="tarjeta-resumen resumen-compensados"> 
+ <h2>Compensados</h2> 
+ <strong id="totalCompensados">0</strong> días 
+ </article> 
+ </section> 
+
+ <section class="calendarios" id="calendarios"></section> 
+
+ <div class="leyenda"> 
+ <div class="leyenda-item"> 
+ <span class="color vacaciones"></span> 
+ Vacaciones 
+ </div> 
+ <div class="leyenda-item"> 
+ <span class="color festivos"></span> 
+ Festivos 
+ </div> 
+ <div class="leyenda-item"> 
+ <span class="color compensados"></span> 
+ Compensados 
+ </div> 
+ </div> 
+ </main> 
+
+ <script> 
+ const nombresMeses = [ 
+ "Enero", "Febrero", "Marzo", "Abril", 
+ "Mayo", "Junio", "Julio", "Agosto", 
+ "Septiembre", "Octubre", "Noviembre", "Diciembre" 
+ ]; 
+
+ const diasSemana = ["L", "M", "X", "J", "V", "S", "D"]; 
+
+ const tipos = { 
+ vacaciones: "VACACIONES", 
+ festivos: "FESTIVOS", 
+ compensados: "COMPENSADOS" 
+ }; 
+
+ let tipoSeleccionado = "vacaciones"; 
+ let anioSeleccionado = new Date().getFullYear(); 
+
+ let datos = { 
+ personas: [], 
+ personaActivaId: null 
+ }; 
+
+ const selectorAnio = document.getElementById("anio"); 
+ const selectorPersona = document.getElementById("persona"); 
+ const inputMaxVacaciones = document.getElementById("maxVacaciones"); 
+ const contenedorCalendarios = document.getElementById("calendarios"); 
+
+ function crearSelectorAnios() { 
+ const anioActual = new Date().getFullYear(); 
+
+ for (let anio = anioActual - 2; anio <= anioActual + 5; anio++) { 
+ const opcion = document.createElement("option"); 
+ opcion.value = anio; 
+ opcion.textContent = anio; 
+
+ if (anio === anioSeleccionado) { 
+ opcion.selected = true; 
+ } 
+
+ selectorAnio.appendChild(opcion); 
+ } 
+ } 
+
+ function claveAlmacenamiento() { 
+ return `planificador-personas-${anioSeleccionado}`; 
+ } 
+
+ function guardarDatos() { 
+ localStorage.setItem(claveAlmacenamiento(), JSON.stringify(datos)); 
+ } 
+
+ function cargarDatos() { 
+ const datosGuardados = localStorage.getItem(claveAlmacenamiento()); 
+
+ if (datosGuardados) { 
+ datos = JSON.parse(datosGuardados); 
+ } else { 
+ const primeraPersona = crearPersona("Persona 1", 22); 
+
+ datos = { 
+ personas: [primeraPersona], 
+ personaActivaId: primeraPersona.id 
+ }; 
+
+ guardarDatos(); 
+ } 
+
+ if (!datos.personas || datos.personas.length === 0) { 
+ const primeraPersona = crearPersona("Persona 1", 22); 
+ datos.personas = [primeraPersona]; 
+ datos.personaActivaId = primeraPersona.id; 
+ guardarDatos(); 
+ } 
+ } 
+
+ function crearPersona(nombre, maxVacaciones) { 
+ return { 
+ id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, 
+ nombre, 
+ maxVacaciones: Number(maxVacaciones), 
+ asignaciones: {} 
+ }; 
+ } 
+
+ function obtenerPersonaActiva() { 
+ return datos.personas.find((persona) => persona.id === datos.personaActivaId); 
+ } 
+
+ function renderizarSelectorPersonas() { 
+ selectorPersona.innerHTML = ""; 
+
+ datos.personas.forEach((persona) => { 
+ const opcion = document.createElement("option"); 
+ opcion.value = persona.id; 
+ opcion.textContent = persona.nombre; 
+ opcion.selected = persona.id === datos.personaActivaId; 
+ selectorPersona.appendChild(opcion); 
+ }); 
+
+ const personaActiva = obtenerPersonaActiva(); 
+
+ if (personaActiva) { 
+ inputMaxVacaciones.value = personaActiva.maxVacaciones; 
+ } 
+ } 
+
+ function obtenerClaveFecha(anio, mes, dia) { 
+ return `${anio}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`; 
+ } 
+
+ function obtenerDiasDelMes(anio, mes) { 
+ return new Date(anio, mes + 1, 0).getDate(); 
+ } 
+
+ function obtenerPrimerDiaSemana(anio, mes) { 
+ const dia = new Date(anio, mes, 1).getDay(); 
+ return dia === 0 ? 6 : dia - 1; 
+ } 
+
+ function esFinDeSemana(anio, mes, dia) { 
+ const diaSemana = new Date(anio, mes, dia).getDay(); 
+ return diaSemana === 0 || diaSemana === 6; 
+ } 
+
+ function obtenerTipoDia(persona, anio, mes, dia) { 
+ if (esFinDeSemana(anio, mes, dia)) { 
+ return "festivos"; 
+ } 
+
+ const fechaClave = obtenerClaveFecha(anio, mes, dia); 
+ return persona.asignaciones[fechaClave] || ""; 
+ } 
+
+ function obtenerTotalPorTipo(persona, tipo) { 
+ let total = 0; 
+
+ for (let mes = 0; mes < 12; mes++) { 
+ const diasMes = obtenerDiasDelMes(anioSeleccionado, mes); 
+
+ for (let dia = 1; dia <= diasMes; dia++) { 
+ if (obtenerTipoDia(persona, anioSeleccionado, mes, dia) === tipo) { 
+ total++; 
+ } 
+ } 
+ } 
+
+ const anioSiguiente = anioSeleccionado + 1; 
+ const diasEnero = obtenerDiasDelMes(anioSiguiente, 0); 
+
+ for (let dia = 1; dia <= diasEnero; dia++) { 
+ if (obtenerTipoDia(persona, anioSiguiente, 0, dia) === tipo) { 
+ total++; 
+ } 
+ } 
+
+ return total; 
+ } 
+
+ function crearCalendarioMes(anio, mes) { 
+ const persona = obtenerPersonaActiva(); 
+ const tarjetaMes = document.createElement("article"); 
+ tarjetaMes.className = "mes"; 
+
+ const titulo = document.createElement("h2"); 
+ titulo.textContent = `${nombresMeses[mes]} ${anio}`; 
+ tarjetaMes.appendChild(titulo); 
+
+ const cabeceraSemana = document.createElement("div"); 
+ cabeceraSemana.className = "semana"; 
+
+ diasSemana.forEach((dia) => { 
+ const etiqueta = document.createElement("span"); 
+ etiqueta.textContent = dia; 
+ cabeceraSemana.appendChild(etiqueta); 
+ }); 
+
+ tarjetaMes.appendChild(cabeceraSemana); 
+
+ const cuadriculaDias = document.createElement("div"); 
+ cuadriculaDias.className = "dias"; 
+
+ const primerDia = obtenerPrimerDiaSemana(anio, mes); 
+ const totalDias = obtenerDiasDelMes(anio, mes); 
+
+ for (let i = 0; i < primerDia; i++) { 
+ const espacio = document.createElement("div"); 
+ espacio.className = "dia-vacio"; 
+ cuadriculaDias.appendChild(espacio); 
+ } 
+
+ for (let dia = 1; dia <= totalDias; dia++) { 
+ const fechaClave = obtenerClaveFecha(anio, mes, dia); 
+ const botonDia = document.createElement("button"); 
+ const tipoDia = obtenerTipoDia(persona, anio, mes, dia); 
+ const esFinSemana = esFinDeSemana(anio, mes, dia); 
+
+ botonDia.className = "dia"; 
+ botonDia.textContent = dia; 
+ botonDia.dataset.fecha = fechaClave; 
+
+ if (tipoDia) { 
+ botonDia.classList.add(tipoDia); 
+ } 
+
+ if (esFinSemana) { 
+ botonDia.disabled = true; 
+ botonDia.title = "Festivo automático: sábado o domingo"; 
+ } else { 
+ botonDia.title = `${dia} de ${nombresMeses[mes]} de ${anio}`; 
+ botonDia.addEventListener("click", () => asignarDia(anio, mes, dia)); 
+ } 
+
+ cuadriculaDias.appendChild(botonDia); 
+ } 
+
+ tarjetaMes.appendChild(cuadriculaDias); 
+ return tarjetaMes; 
+ } 
+
+ function renderizarCalendarios() { 
+ contenedorCalendarios.innerHTML = ""; 
+
+ for (let mes = 0; mes < 12; mes++) { 
+ contenedorCalendarios.appendChild(crearCalendarioMes(anioSeleccionado, mes)); 
+ } 
+
+ contenedorCalendarios.appendChild( 
+ crearCalendarioMes(anioSeleccionado + 1, 0) 
+ ); 
+
+ renderizarSelectorPersonas(); 
+ actualizarResumen(); 
+ } 
+
+ function asignarDia(anio, mes, dia) { 
+ const persona = obtenerPersonaActiva(); 
+ const fechaClave = obtenerClaveFecha(anio, mes, dia); 
+ const tipoActual = persona.asignaciones[fechaClave]; 
+
+ if (tipoActual === tipoSeleccionado) { 
+ delete persona.asignaciones[fechaClave]; 
+ } else { 
+ const vacacionesActuales = obtenerTotalPorTipo(persona, "vacaciones"); 
+
+ if ( 
+ tipoSeleccionado === "vacaciones" && 
+ tipoActual !== "vacaciones" && 
+ vacacionesActuales >= persona.maxVacaciones 
+ ) { 
+ alert( 
+ `${persona.nombre} ya ha alcanzado el máximo de ${persona.maxVacaciones} días de vacaciones.` 
+ ); 
+ return; 
+ } 
+
+ persona.asignaciones[fechaClave] = tipoSeleccionado; 
+ } 
+
+ guardarDatos(); 
+ renderizarCalendarios(); 
+ } 
+
+ function actualizarResumen() { 
+ const persona = obtenerPersonaActiva(); 
+
+ if (!persona) return; 
+
+ const vacaciones = obtenerTotalPorTipo(persona, "vacaciones"); 
+ const festivos = obtenerTotalPorTipo(persona, "festivos"); 
+ const compensados = obtenerTotalPorTipo(persona, "compensados"); 
+ const pendientes = Math.max(0, persona.maxVacaciones - vacaciones); 
+
+ document.getElementById("totalVacaciones").textContent = vacaciones; 
+ document.getElementById("vacacionesPendientes").textContent = pendientes; 
+ document.getElementById("totalFestivos").textContent = festivos; 
+ document.getElementById("totalCompensados").textContent = compensados; 
+ } 
+
+ function seleccionarTipo(tipo) { 
+ tipoSeleccionado = tipo; 
+
+ document.querySelectorAll(".tipo-btn").forEach((boton) => { 
+ boton.classList.toggle("activo", boton.dataset.tipo === tipo); 
+ }); 
+ } 
+
+ function obtenerDiasPorTipo(persona, tipo) { 
+ const resultado = {}; 
+
+ const procesarMes = (anio, mes) => { 
+ const diasMes = obtenerDiasDelMes(anio, mes); 
+
+ for (let dia = 1; dia <= diasMes; dia++) { 
+ if (obtenerTipoDia(persona, anio, mes, dia) !== tipo) continue; 
+
+ const claveMes = `${anio}-${mes}`; 
+
+ if (!resultado[claveMes]) { 
+ resultado[claveMes] = { anio, mes, dias: [] }; 
+ } 
+
+ resultado[claveMes].dias.push(dia); 
+ } 
+ }; 
+
+ for (let mes = 0; mes < 12; mes++) { 
+ procesarMes(anioSeleccionado, mes); 
+ } 
+
+ procesarMes(anioSeleccionado + 1, 0); 
+
+ return Object.values(resultado); 
+ } 
+
+ function crearTextoReporte(persona, tipo) { 
+ const grupos = obtenerDiasPorTipo(persona, tipo); 
+
+ if (grupos.length === 0) { 
+ return `${tipos[tipo]}: Sin días asignados.`; 
+ } 
+
+ const meses = grupos.map((grupo) => { 
+ const nombreMes = nombresMeses[grupo.mes].toUpperCase(); 
+ const etiquetaMes = 
+ grupo.anio === anioSeleccionado 
+ ? nombreMes 
+ : `${nombreMes} ${grupo.anio}`; 
+
+ return `${etiquetaMes}: ${grupo.dias.join(", ")}`; 
+ }); 
+
+ return `${tipos[tipo]}: ${meses.join(" | ")}`; 
+ } 
+
+ function obtenerLineasPorMes(persona, tipo) { 
+ const lineas = []; 
+
+ function procesarMes(anio, mes) { 
+ const diasAsignados = []; 
+ const totalDias = obtenerDiasDelMes(anio, mes); 
+
+ for (let dia = 1; dia <= totalDias; dia++) { 
+ if (obtenerTipoDia(persona, anio, mes, dia) === tipo) { 
+ diasAsignados.push(dia); 
+ } 
+ } 
+
+ const nombreMes = 
+ anio === anioSeleccionado 
+ ? nombresMeses[mes].toUpperCase() 
+ : `${nombresMeses[mes].toUpperCase()} ${anio}`; 
+
+ lineas.push( 
+ `${nombreMes}: ${ 
+ diasAsignados.length > 0 
+ ? diasAsignados.join(", ") 
+ : "Sin días asignados" 
+ }` 
+ ); 
+ } 
+
+ for (let mes = 0; mes < 12; mes++) { 
+ procesarMes(anioSeleccionado, mes); 
+ } 
+
+ procesarMes(anioSeleccionado + 1, 0); 
+
+ return lineas; 
+ } 
+
+ function generarPDF() { 
+ const { jsPDF } = window.jspdf; 
+
+ const pdf = new jsPDF({ 
+ orientation: "portrait", 
+ unit: "mm", 
+ format: "a4" 
+ }); 
+
+ const margenIzquierdo = 18; 
+ const margenDerecho = 18; 
+ const anchoUtil = 210 - margenIzquierdo - margenDerecho; 
+ let posicionY = 20; 
+
+ function comprobarEspacio(espacioNecesario) { 
+ if (posicionY + espacioNecesario > 275) { 
+ pdf.addPage(); 
+ posicionY = 20; 
+ } 
+ } 
+
+ pdf.setFont("helvetica", "bold"); 
+ pdf.setFontSize(19); 
+ pdf.setTextColor(15, 23, 42); 
+ pdf.text(`Reporte anual de días - ${anioSeleccionado}`, margenIzquierdo, posicionY); 
+
+ posicionY += 9; 
+
+ pdf.setFont("helvetica", "normal"); 
+ pdf.setFontSize(10); 
+ pdf.setTextColor(100, 116, 139); 
+ pdf.text( 
+ `Periodo: enero de ${anioSeleccionado} a enero de ${anioSeleccionado + 1}`, 
+ margenIzquierdo, 
+ posicionY 
+ ); 
+
+ posicionY += 14; 
+
+ datos.personas.forEach((persona, indicePersona) => { 
+ comprobarEspacio(35); 
+
+ if (indicePersona > 0) { 
+ pdf.setDrawColor(203, 213, 225); 
+ pdf.line(margenIzquierdo, posicionY - 5, 210 - margenDerecho, posicionY - 5); 
+ } 
+
+ /* Nombre de la persona: grande y en negrita */ 
+ pdf.setFont("helvetica", "bold"); 
+ pdf.setFontSize(18); 
+ pdf.setTextColor(15, 23, 42); 
+ pdf.text(persona.nombre.toUpperCase(), margenIzquierdo, posicionY); 
+
+ posicionY += 8; 
+
+ const vacacionesAsignadas = obtenerTotalPorTipo(persona, "vacaciones"); 
+ const vacacionesPendientes = Math.max( 
+ 0, 
+ persona.maxVacaciones - vacacionesAsignadas 
+ ); 
+
+ pdf.setFont("helvetica", "normal"); 
+ pdf.setFontSize(10); 
+ pdf.setTextColor(71, 85, 105); 
+ pdf.text( 
+ `Vacaciones asignadas: ${vacacionesAsignadas} de ${persona.maxVacaciones} | Pendientes: ${vacacionesPendientes}`, 
+ margenIzquierdo, 
+ posicionY 
+ ); 
+
+ posicionY += 10; 
+
+ const secciones = [ 
+ { 
+ tipo: "vacaciones", 
+ titulo: "VACACIONES", 
+ color: [37, 99, 235] 
+ }, 
+ { 
+ tipo: "compensados", 
+ titulo: "COMPENSADOS", 
+ color: [147, 51, 234] 
+ } 
+ ]; 
+   
+  secciones.forEach((seccion) => {
+    comprobarEspacio(18);
+ 
+    /* Título de sección con color */
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(13);
+    pdf.setTextColor(...seccion.color);
+    pdf.text(seccion.titulo, margenIzquierdo, posicionY);
+ 
+    posicionY += 7;
+ 
+    /* Cada mes se imprime en una fila independiente */
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.setTextColor(51, 65, 85);
+ 
+    const lineasMeses = obtenerLineasPorMes(persona, seccion.tipo);
+ 
+    lineasMeses.forEach((linea) => {
+   comprobarEspacio(7);
+ 
+   const lineaAjustada = pdf.splitTextToSize(linea, anchoUtil);
+   pdf.text(lineaAjustada, margenIzquierdo, posicionY);
+ 
+   posicionY += lineaAjustada.length * 5.5;
+    });
+ 
+    posicionY += 7;
+  });
+ 
+  posicionY += 4;
+   });
+ 
+   pdf.setFont("helvetica", "normal");
+   pdf.setFontSize(8);
+   pdf.setTextColor(100, 116, 139);
+   pdf.text(
+  `Generado el ${new Date().toLocaleDateString("es-ES")}`,
+  margenIzquierdo,
+  287
+   );
+ 
+   pdf.save(`reporte-vacaciones-${anioSeleccionado}.pdf`);
+ }
+ 
+   document.querySelectorAll(".tipo-btn").forEach((boton) => {
+  boton.addEventListener("click", () => seleccionarTipo(boton.dataset.tipo));
+   });
+ 
+   selectorAnio.addEventListener("change", (evento) => {
+  anioSeleccionado = Number(evento.target.value);
+  cargarDatos();
+  renderizarCalendarios();
+   });
+ 
+   selectorPersona.addEventListener("change", (evento) => {
+  datos.personaActivaId = evento.target.value;
+  guardarDatos();
+  renderizarCalendarios();
+   });
+ 
+   inputMaxVacaciones.addEventListener("change", () => {
+  const persona = obtenerPersonaActiva();
+  const nuevoMaximo = Math.max(0, Number(inputMaxVacaciones.value) || 0);
+ 
+  persona.maxVacaciones = nuevoMaximo;
+  guardarDatos();
+  actualizarResumen();
+   });
+ 
+   document.getElementById("agregarPersona").addEventListener("click", () => {
+  const nombre = prompt("Nombre de la nueva persona:");
+ 
+  if (!nombre || !nombre.trim()) return;
+ 
+  const maximo = prompt(
+    `Máximo de días de vacaciones para ${nombre.trim()}:`,
+    "22"
+  );
+ 
+  const nuevaPersona = crearPersona(nombre.trim(), Math.max(0, Number(maximo) || 0));
+ 
+  datos.personas.push(nuevaPersona);
+  datos.personaActivaId = nuevaPersona.id;
+ 
+  guardarDatos();
+  renderizarCalendarios();
+   });
+ 
+   document.getElementById("eliminarPersona").addEventListener("click", () => {
+  if (datos.personas.length === 1) {
+    alert("Debe existir al menos una persona.");
+    return;
+  }
+ 
+  const persona = obtenerPersonaActiva();
+  const confirmar = confirm(`¿Eliminar a ${persona.nombre} y sus asignaciones?`);
+ 
+  if (!confirmar) return;
+ 
+  datos.personas = datos.personas.filter(
+    (personaActual) => personaActual.id !== persona.id
+  );
+ 
+  datos.personaActivaId = datos.personas[0].id;
+ 
+  guardarDatos();
+  renderizarCalendarios();
+   });
+ 
+   document.getElementById("limpiarCalendario").addEventListener("click", () => {
+  const persona = obtenerPersonaActiva();
+ 
+  const confirmar = confirm(
+    `¿Quieres eliminar las asignaciones manuales de ${persona.nombre}?`
+  );
+ 
+  if (!confirmar) return;
+ 
+  persona.asignaciones = {};
+  guardarDatos();
+  renderizarCalendarios();
+   });
+ 
+   document.getElementById("generarPdf").addEventListener("click", generarPDF);
+ 
+   crearSelectorAnios();
+   cargarDatos();
+   renderizarCalendarios();
+ </script>
+</body>
+</html>
